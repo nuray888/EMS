@@ -1,0 +1,6 @@
+@UnitedPayment_HostAddress = http://localhost:5177
+
+GET {{UnitedPayment_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
