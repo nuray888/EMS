@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using UnitedPayment.Hubs;
+using UnitedPayment.Migrations;
 using UnitedPayment.Model;
 using UnitedPayment.Model.DTOs.Requests;
 
@@ -22,6 +23,25 @@ namespace UnitedPayment.Controllerr
             return Ok(chats);
         }
 
+        //[HttpPost]
+        //public async Task<IActionResult> SendMessage([FromBody] MessageRequestDTO request, CancellationToken cancellationToken)
+        //{
+        //    Chat chat = new()
+        //    {
+        //        UserId = request.userId,
+        //        toUserId = request.toUserId,
+        //        Message = request.Message,
+        //        Date = DateTime.UtcNow
+        //    };
+        //    await context.AddAsync(chat, cancellationToken);
+        //    await context.SaveChangesAsync(cancellationToken);
+        //    string connectionId = ChatHub.Users.First(p => p.Value == chat.toUserId).Key;
+
+        //    await hubContext.Clients.Client(connectionId).SendAsync("Messages", chat);
+
+        //    return Ok(chat);
+        //}
+
         [HttpPost]
         public async Task<IActionResult> SendMessage([FromBody] MessageRequestDTO request, CancellationToken cancellationToken)
         {
@@ -30,15 +50,22 @@ namespace UnitedPayment.Controllerr
                 UserId = request.userId,
                 toUserId = request.toUserId,
                 Message = request.Message,
-                Date = DateTime.Now
+                Date = DateTime.UtcNow
             };
             await context.AddAsync(chat, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
-            string connectionId = ChatHub.Users.First(p => p.Value == chat.toUserId).Key;
 
-            await hubContext.Clients.Client(connectionId).SendAsync("Messages", chat);
+            var userConnection = ChatHub.Users.FirstOrDefault(p => p.Value == chat.toUserId);
+
+            if (!userConnection.Equals(default(KeyValuePair<string, string>)) && !string.IsNullOrEmpty(userConnection.Key))
+            {
+                await hubContext.Clients.Client(userConnection.Key).SendAsync("Messages", chat);
+            }
 
             return Ok(chat);
+
+
+
         }
 
     }

@@ -18,7 +18,7 @@ namespace UnitedPayment.Model
 
         public bool isActive { get; set; } = true;
 
-        public HashSet<Department>? Departments { get; set; }
+        public HashSet<Department> Departments { get; set; }= new HashSet<Department>();
 
         public UserRole Role { get; set; } = UserRole.Employee;
 

@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using System.Security.Claims;
-using UnitedPayment.Migrations;
 using UnitedPayment.Model;
 using UnitedPayment.Model.DTOs;
 using UnitedPayment.Model.Enums;
@@ -25,8 +24,8 @@ namespace UnitedPayment.Controllerr
         }
 
         [HttpGet]
-        //[Authorize(Roles ="Admin")]
-        public async Task<ActionResult<List<EmployeeResponseDTO>>> Employees()
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<List<EmployeeResponseDTO>>> GetAllEmployees()
         {
             var employees = await service.GetAllAsync();
             if (employees == null)
@@ -37,7 +36,7 @@ namespace UnitedPayment.Controllerr
             Log.Information("Employees =>{@employees}", employees);
             return Ok(employees);
         }
-
+        [Authorize(Roles ="Admin")]
         [HttpGet("{id}")]
         public async Task<ActionResult<EmployeeResponseDTO>> GetById([FromRoute] int id)
         {
@@ -50,7 +49,7 @@ namespace UnitedPayment.Controllerr
             Log.Information("Employee returned with id: {@id}", id);
             return Ok(employee);
         }
-
+        [Authorize]
         [HttpGet("department/{departmentId}")]
         public async Task<ActionResult<List<EmployeeResponseDTO>>> getByDepartmentId(int departmentId)
         {
@@ -61,15 +60,15 @@ namespace UnitedPayment.Controllerr
         [Authorize(Roles = "Admin,Manager")]
         public async Task<ActionResult<string>> AddEmployee([FromBody] EmployeeRequestDTO employee)
         {
-            var email = User.FindFirstValue(ClaimTypes.Email);
-            var user=(await userRepo.GetAll(x=>x.Email==email)).First();
-            if (user.Role == UserRole.Manager)
-            {
-                if (user == null || user.DepartmentId != employee.DepartmentId) 
-                {
-                    return Forbid("Manager yalnız öz departmentinə işçi əlavə edə bilər.");
-                }
-            }
+            //var email = User.FindFirstValue(ClaimTypes.Email);
+            //var user=(await userRepo.GetAll(x=>x.Email==email)).First();
+            //if (user.Role == UserRole.Manager)
+            //{
+            //    if (user == null || user.DepartmentId != employee.DepartmentId) 
+            //    {
+            //        return Forbid("Manager yalnız öz departmentinə işçi əlavə edə bilər.");
+            //    }
+            //}
             var result = await service.CreateAsync(employee);
             var newUser= new User()
             {
@@ -80,6 +79,7 @@ namespace UnitedPayment.Controllerr
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles ="Admin")]
         public async Task<IActionResult> UpdateEmployee([FromBody] EmployeeRequestDTO employee, [FromRoute] int id)
         {
             var ExistingEmployee = await service.GetByIdAsync(id);
@@ -99,6 +99,9 @@ namespace UnitedPayment.Controllerr
         public async Task<IActionResult> DeleteEmployee([FromRoute] int id)
         {
             var employee = await service.GetByIdAsync(id);
+            //var email = User.FindFirstValue(ClaimTypes.Email);
+            //var user=(await userRepo.GetAll(x=>x.Email==email)).First();
+
             if (employee == null)
             {
                 Log.Warning("Employee not found with given id {@id}", id);

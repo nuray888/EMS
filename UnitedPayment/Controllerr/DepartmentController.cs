@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using UnitedPayment.Model;
@@ -11,6 +12,7 @@ namespace UnitedPayment.Controllerr
 {
     [Route("api/[controller]")]
     [ApiController]
+    //[Authorize(Roles = "Manager,Admin")]
     public class DepartmentController : ControllerBase
     {
         readonly IDepartmentService service;
@@ -18,6 +20,7 @@ namespace UnitedPayment.Controllerr
         {
             this.service = service;
         }
+
         [HttpGet]
         public async Task<ActionResult<List<DepartmentResponseDTO>>> GetAll()
         {
@@ -30,6 +33,8 @@ namespace UnitedPayment.Controllerr
             Log.Information("Departments => {@departments}", departments);
             return departments;
         }
+
+       
         [HttpGet("{id}")]
         public async Task<ActionResult<DepartmentResponseDTO>> GetById([FromRoute] int id)
         {
@@ -44,7 +49,7 @@ namespace UnitedPayment.Controllerr
         }
 
 
-
+  
         [HttpPost]
         public async Task<ActionResult<DepartmentResponseDTO>> Create([FromBody] DepartmentRequestDTO request)
         {

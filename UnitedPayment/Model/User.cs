@@ -13,10 +13,12 @@ namespace UnitedPayment.Model
         public UserRole Role { get; set; } = UserRole.Employee;
         public string? RefreshToken { get; set; }
         public DateTime? RefreshTokenExpiryTime { get; set; }
+        public DateTime PasswordLastChangedTime { get; set; }
 
 
         public int? DepartmentId { get; set; }
         public Department? Department { get; set; }
+
 
     }
 }

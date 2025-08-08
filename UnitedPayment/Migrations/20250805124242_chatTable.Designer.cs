@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using UnitedPayment.Model;
@@ -11,9 +12,11 @@ using UnitedPayment.Model;
 namespace UnitedPayment.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250805124242_chatTable")]
+    partial class chatTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -129,29 +132,6 @@ namespace UnitedPayment.Migrations
                     b.ToTable("Employees");
                 });
 
-            modelBuilder.Entity("UnitedPayment.Model.PasswordHistory", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("ChangeDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("PasswordHistories");
-                });
-
             modelBuilder.Entity("UnitedPayment.Model.User", b =>
                 {
                     b.Property<int>("Id")
@@ -170,9 +150,6 @@ namespace UnitedPayment.Migrations
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<DateTime>("PasswordLastChangedTime")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("RefreshToken")
                         .HasColumnType("text");

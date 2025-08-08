@@ -12,7 +12,7 @@ namespace UnitedPayment.Services
     {
         Task<string> CreateAsync(EmployeeRequestDTO employeeRequest);
         Task<List<EmployeeResponseDTO>> GetAllAsync();
-        Task<EmployeeResponseDTO?> GetByIdAsync(int id);
+        Task<Employee> GetByIdAsync(int id);
         Task UpdateAsync(EmployeeRequestDTO employee, int id);
         Task DeleteAsync(int id);
 
@@ -21,7 +21,6 @@ namespace UnitedPayment.Services
     }
     public class EmployeeService : IEmployeeService
     {
-        //readonly IEmployeeRepository repository;
         readonly IMapper mapper;
         readonly IRepository<Employee> repository;
         readonly IRepository<Department> departmentRepository;
@@ -69,11 +68,11 @@ namespace UnitedPayment.Services
 
         }
 
-        public async Task<EmployeeResponseDTO?> GetByIdAsync(int id)
+        public async Task<Employee?> GetByIdAsync(int id)
         {
             var employee = await repository.FindByIdAsync(id);
             if (employee == null) return null;
-            return mapper.Map<EmployeeResponseDTO>(employee);
+            return employee;
         }
 
         public async Task UpdateAsync(EmployeeRequestDTO updatedEmployee, int id)

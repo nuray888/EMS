@@ -42,12 +42,6 @@ namespace UnitedPayment.Repository
             return entity;
         }
 
-        //public async Task<HashSet<T>> FindByIds(List<int> ids)
-        //{
-        //    var list = await dbSet.Where(d => ids.Contains(d.id)).ToHashSetAsync();
-        //    return list;
-        //}
-
         public async Task<List<T>> GetAll()
         {
             var list = await dbSet.ToListAsync();

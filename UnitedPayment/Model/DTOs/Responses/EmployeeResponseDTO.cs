@@ -12,6 +12,5 @@ namespace UnitedPayment.Model.DTOs
         public string Address { get; set; } = null!;
         public int Salary { get; set; }
 
-        //public HashSet<DepartmentResponseDTO>? Departments { get; set; }
     }
 }

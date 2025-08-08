@@ -22,6 +22,7 @@ namespace UnitedPayment.Model
         public DbSet<Department> Department { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<Chat> Chats { get; set; }
+        public DbSet<PasswordHistory> PasswordHistories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
