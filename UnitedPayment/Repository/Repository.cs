@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
-using UnitedPayment.Migrations;
 using UnitedPayment.Model;
 
 namespace UnitedPayment.Repository
@@ -10,6 +9,7 @@ namespace UnitedPayment.Repository
         Task<List<T>> GetAll();
         Task<List<T>> GetAll(Expression<Func<T, bool>> filter);
         Task<T> FindByIdAsync(int id);
+
         Task AddAsync(T entity);
         void UpdateAsync(T entity);
         Task DeleteAsync(int id);
@@ -50,7 +50,7 @@ namespace UnitedPayment.Repository
 
         public async Task<List<T>> GetAll(Expression<Func<T, bool>> filter)
         {
-            var list=await dbSet.AsQueryable().Where(filter).ToListAsync();
+            var list = await dbSet.AsQueryable().Where(filter).ToListAsync();
             return list;
         }
 

@@ -1,9 +1,7 @@
-﻿using Microsoft.AspNetCore.Authentication.BearerToken;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
-using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -13,22 +11,24 @@ using UnitedPayment.Model.DTOs;
 using UnitedPayment.Model.DTOs.Requests;
 using UnitedPayment.Model.DTOs.Responses;
 using UnitedPayment.Model.Enums;
+using UnitedPayment.Repository;
 
 namespace UnitedPayment.Services
 {
     public interface IAuthService
     {
-        Task<User?> RegisterAsync(RegisterRequest request);
+        Task<Employee?> RegisterAsync(RegisterRequest request);
         Task<TokenResponseDto?> LoginAsync(AuthDto request);
         Task<TokenResponseDto?> RefreshTokensAsync(RefreshTokenRequestDto request);
         Task<string> ChangePassword(int userId, ChangePasswordDto request);
+        Task UpdateUserRoleAsync(int userId, UserRole role);
     }
-    public class AuthService(AppDbContext context, IConfiguration configuration) : IAuthService
+    public class AuthService(AppDbContext context, IConfiguration configuration, IRepository<Employee> userRepo) : IAuthService
     {
-        public async Task<User> ValidateRefreshTokenAsync(int userId,string refreshToken)
+        public async Task<Employee> ValidateRefreshTokenAsync(int userId, string refreshToken)
         {
-            var user = await context.Users.FindAsync(userId);
-            if(user is null || user.RefreshToken !=refreshToken || user.RefreshTokenExpiryTime < DateTime.UtcNow)
+            var user = await context.Employees.FindAsync(userId);
+            if (user is null || user.RefreshToken != refreshToken || user.RefreshTokenExpiryTime < DateTime.UtcNow)
             {
                 return null;
             }
@@ -36,14 +36,19 @@ namespace UnitedPayment.Services
         }
         public async Task<TokenResponseDto?> LoginAsync(AuthDto request)
         {
-            var user = await context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+            var user = await context.Employees.FirstOrDefaultAsync(u => u.Email == request.Email);
             if (user == null)
             {
                 Log.Warning("User not found with email=> {@email}", request.Email);
                 return null;
             }
+            if (user.isDeleted || !user.isActive)
+            {
+                Log.Warning("Login attempt for deleted or inactive user => {@email}", request.Email);
+                return null;
+            }
 
-            if (new PasswordHasher<User>().VerifyHashedPassword(user, user.PasswordHash, request.Password) == PasswordVerificationResult.Failed)
+            if (new PasswordHasher<Employee>().VerifyHashedPassword(user, user.PasswordHash, request.Password) == PasswordVerificationResult.Failed)
             {
                 Log.Warning("Invalid Password with given email =>{@email}", request.Email);
                 return null;
@@ -57,7 +62,7 @@ namespace UnitedPayment.Services
             return response;
         }
 
-        private async Task<TokenResponseDto> CreateTokenResponse(User user)
+        private async Task<TokenResponseDto> CreateTokenResponse(Employee user)
         {
             return new TokenResponseDto()
             {
@@ -66,39 +71,52 @@ namespace UnitedPayment.Services
             };
         }
 
-        public async Task<User?> RegisterAsync(RegisterRequest request)
+        public async Task<Employee?> RegisterAsync(RegisterRequest request)
         {
-            if (await context.Users.AnyAsync(u => u.Email == request.Email))
+            if (await context.Employees.AnyAsync(u => u.Email == request.Email))
             {
                 Log.Warning("User is already exist with given email => {@email}", request.Email);
                 return null;
             }
-            var user = new User();
-            var hashedPassword = new PasswordHasher<User>()
-       .HashPassword(user, request.Password);
-            user.Email = request.Email;
-            user.PasswordHash = hashedPassword;
-            user.PasswordLastChangedTime = DateTime.UtcNow;
-            context.Users.Add(user);
+            var employee = new Employee(); 
+            employee.Email = request.Email;
+            employee.Name = request.Name;
+            employee.Surname = request.Surname;
+            var hashedPassword = new PasswordHasher<Employee>().HashPassword(employee, request.Password);
+            employee.PasswordHash = hashedPassword;
+            employee.PasswordLastChangedTime = DateTime.UtcNow;
+            employee.Age = request.Age;
+            employee.Address = request.Address;
+            employee.CreatedAt = DateTime.UtcNow;
+            employee.Role = UserRole.Employee;
+            context.Employees.Add(employee);
+            await context.SaveChangesAsync();
+            var passwordHistory = new PasswordHistory()
+            {
+                EmployeeId = employee.Id,
+                ChangeDate = DateTime.UtcNow,
+                PasswordHash = employee.PasswordHash
+            };
+            context.PasswordHistories.Add(passwordHistory);
             await context.SaveChangesAsync();
 
-            return user;
+            return employee;
         }
-        public async Task<string> ChangePassword(int userId,ChangePasswordDto request)
+        public async Task<string> ChangePassword(int employeeId, ChangePasswordDto request)
         {
-            var user = await context.Users.FindAsync(userId);
+            var user = await context.Employees.FindAsync(employeeId);
             if (user == null)
             {
                 return null;
             }
-            var passwordHasher = new PasswordHasher<User>();
+            var passwordHasher = new PasswordHasher<Employee>();
 
             if (passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.OldPassword) == PasswordVerificationResult.Failed)
             {
                 return null;
             }
-            var oneYearAgo= DateTime.UtcNow.AddYears(-1);
-            var recentPasswords =await  context.PasswordHistories.Where(x => x.UserId == userId && x.ChangeDate >= oneYearAgo).ToListAsync();
+            var oneYearAgo = DateTime.UtcNow.AddYears(-1);
+            var recentPasswords = await context.PasswordHistories.Where(x => x.EmployeeId == employeeId && x.ChangeDate >= oneYearAgo).ToListAsync();
             if (recentPasswords.Any(old =>
 passwordHasher.VerifyHashedPassword(user, old.PasswordHash, request.NewPassword)
   == PasswordVerificationResult.Success))
@@ -107,13 +125,14 @@ passwordHasher.VerifyHashedPassword(user, old.PasswordHash, request.NewPassword)
             }
 
             user.PasswordHash = passwordHasher.HashPassword(user, request.NewPassword);
-            user.PasswordLastChangedTime=DateTime.UtcNow;
+            user.PasswordLastChangedTime = DateTime.UtcNow;
             var passwordHistory = new PasswordHistory()
             {
-                UserId = user.Id,
+                EmployeeId = employeeId,
                 ChangeDate = DateTime.UtcNow,
                 PasswordHash = user.PasswordHash
             };
+        
             context.PasswordHistories.Add(passwordHistory);
             await context.SaveChangesAsync();
 
@@ -131,7 +150,7 @@ passwordHasher.VerifyHashedPassword(user, old.PasswordHash, request.NewPassword)
         }
 
 
-        private async Task<string> GenerateAndSaveTokenAsync(User user)
+        private async Task<string> GenerateAndSaveTokenAsync(Employee user)
         {
             var refreshToken = GenerateRefreshToken();
             user.RefreshToken = refreshToken;
@@ -140,7 +159,7 @@ passwordHasher.VerifyHashedPassword(user, old.PasswordHash, request.NewPassword)
             return refreshToken;
         }
 
-        private string CreateToken(User user)
+        private string CreateToken(Employee user)
         {
             var claims = new List<Claim>
             {
@@ -160,16 +179,29 @@ passwordHasher.VerifyHashedPassword(user, old.PasswordHash, request.NewPassword)
                 );
             return new JwtSecurityTokenHandler().WriteToken(TokenDescriptor);
         }
-        public async  Task<TokenResponseDto?> RefreshTokensAsync(RefreshTokenRequestDto request)
+        public async Task<TokenResponseDto?> RefreshTokensAsync(RefreshTokenRequestDto request)
         {
             var user = await ValidateRefreshTokenAsync(request.UserId, request.RefreshToken);
-            if(user is null)
+            if (user is null)
             {
                 return null;
             }
             return await CreateTokenResponse(user);
-           
+
         }
+        public async Task UpdateUserRoleAsync(int userId, UserRole role)
+        {
+            Employee user = await userRepo.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return;
+            }
+            user.Role = role;
+            userRepo.UpdateAsync(user);
+            await userRepo.SaveChangesAsync();
+
+        }
+
 
     }
 }

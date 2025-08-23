@@ -1,12 +1,11 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
 using UnitedPayment.Model;
 using UnitedPayment.Model.DTOs;
+using UnitedPayment.Model.Enums;
 using UnitedPayment.Repository;
 
 namespace UnitedPayment.Services
-
 {
     public interface IEmployeeService
     {
@@ -17,37 +16,30 @@ namespace UnitedPayment.Services
         Task DeleteAsync(int id);
 
         Task<List<EmployeeResponseDTO>> GetByDepartmentId(int departmentId);
+        Task PaySalariesAsync();
+
+        Task ActivateEmployeeAsync(int id);
+        Task DeActivateEmployeeAsync(int id);
+        Task AddEmployeeToDepartment(int id, int departmentId);
+        Task<Employee?> SetUserSalaryAsync(int employeeId, int salary);
 
     }
     public class EmployeeService : IEmployeeService
     {
-        readonly IMapper mapper;
-        readonly IRepository<Employee> repository;
-        readonly IRepository<Department> departmentRepository;
-        readonly IEmployeeRepository employeeRepository;
+        private readonly IMapper mapper;
+        private readonly IRepository<Employee> repository;
+        private readonly IRepository<Department> departmentRepository;
+        private readonly IEmployeeRepository employeeRepository;
+        public readonly AppDbContext db;
 
 
-        public EmployeeService(IRepository<Employee> _repository, IMapper _mapper, IRepository<Department> departmentRepository, IEmployeeRepository employeeRepository)
+        public EmployeeService(IMapper mapper, IRepository<Employee> repository, IRepository<Department> departmentRepository, IEmployeeRepository employeeRepository, AppDbContext db)
         {
-            repository = _repository;
+            this.mapper = mapper;
+            this.repository = repository;
             this.departmentRepository = departmentRepository;
-            mapper = _mapper;
             this.employeeRepository = employeeRepository;
-        }
-
-        public async Task<string> CreateAsync(EmployeeRequestDTO employeeRequest)
-        {
-            Employee employee = mapper.Map<Employee>(employeeRequest);
-            //HashSet<Department> allById=await departmentRepository.findByIds(employeeRequest.DepartmentIds);
-            //employee.Departments = allById;
-            await repository.AddAsync(employee);
-            return "Employee created";
-        }
-
-        public async Task DeleteAsync(int id)
-        {
-            await repository.DeleteAsync(id);
-
+            this.db = db;
         }
 
         public async Task<List<EmployeeResponseDTO>> GetAllAsync()
@@ -56,6 +48,15 @@ namespace UnitedPayment.Services
             return employees.Select(e => mapper.Map<EmployeeResponseDTO>(e)).ToList();
         }
 
+
+        public async Task<string> CreateAsync(EmployeeRequestDTO employeeRequest)
+        {
+            Employee employee = mapper.Map<Employee>(employeeRequest);
+            await repository.AddAsync(employee);
+            return "Employee created";
+        }
+
+
         public async Task<List<EmployeeResponseDTO>> GetByDepartmentId(int departmentId)
         {
             var department = await departmentRepository.FindByIdAsync(departmentId);
@@ -63,7 +64,7 @@ namespace UnitedPayment.Services
             {
                 return null;
             }
-            List<Employee> employees=employeeRepository.EmployeesByDepartmentId(departmentId);
+            List<Employee> employees = employeeRepository.EmployeesByDepartmentId(departmentId);
             return employees.Select(e => mapper.Map<EmployeeResponseDTO>(e)).ToList();
 
         }
@@ -79,9 +80,77 @@ namespace UnitedPayment.Services
         {
             var employee = await repository.FindByIdAsync(id);
             if (employee == null) throw new Exception("Employee not found");
-
+            employee.UpdatedAt = DateTime.UtcNow;
             mapper.Map(updatedEmployee, employee);
             repository.UpdateAsync(employee);
         }
+
+        public async Task DeleteAsync(int id)
+        {
+            var employee=await repository.FindByIdAsync(id);
+            if (employee != null)
+            {
+                employee.isDeleted = true;
+                employee.isActive = false;
+            }
+            await db.SaveChangesAsync();
+
+        }
+
+        public async Task PaySalariesAsync()
+        {
+            var oneMonthAgo = DateTime.UtcNow.AddMonths(-1);
+
+            await db.Employees
+                .Where(e => e.isActive &&
+                            !e.isDeleted &&
+                            (e.LastPaidDate == null || e.LastPaidDate < oneMonthAgo))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(e => e.LastPaidDate, DateTime.UtcNow)
+                );
+        }
+        public async Task ActivateEmployeeAsync(int id)
+        {
+            var employee=await repository.FindByIdAsync(id);
+            if(employee ==null || employee.Role != UserRole.Employee)
+            {
+                return;
+            }
+            employee.isActive = true;
+            await repository.SaveChangesAsync();
+        }
+
+
+        public async Task DeActivateEmployeeAsync(int id)
+        {
+            var employee = await repository.FindByIdAsync(id);
+            if (employee == null || employee.Role != UserRole.Employee)
+            {
+                return;
+            }
+            employee.isActive = false;
+            await repository.SaveChangesAsync();
+        }
+
+        public async Task AddEmployeeToDepartment(int id,int departmentId)
+        {
+            var employee = await repository.FindByIdAsync(id);
+            var department = await departmentRepository.FindByIdAsync(departmentId);
+            employee.Departments.Add(department);
+            await departmentRepository.SaveChangesAsync();
+        }
+
+        public async Task<Employee?> SetUserSalaryAsync(int employeeId, int salary)
+        {
+            var user = await repository.FindByIdAsync(employeeId);
+            if (user == null) return null;
+            if (!user.Salary.Equals(salary))
+            {
+                user.Salary = salary;
+                await repository.SaveChangesAsync();
+            }
+            return user;
+        }
     }
+
 }

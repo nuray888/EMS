@@ -2,10 +2,14 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
+using System.Security.Claims;
 using UnitedPayment.Hubs;
 using UnitedPayment.Migrations;
 using UnitedPayment.Model;
 using UnitedPayment.Model.DTOs.Requests;
+using UnitedPayment.Model.Enums;
+using UnitedPayment.Repository;
 
 namespace UnitedPayment.Controllerr
 {
@@ -13,41 +17,37 @@ namespace UnitedPayment.Controllerr
     [ApiController]
     public class ChatController(
         AppDbContext context,
-        IHubContext<ChatHub> hubContext) : ControllerBase
+        IHubContext<ChatHub> hubContext,
+        IRepository<Employee> userRepo) : ControllerBase
+
     {
         [HttpGet]
-        public async Task<IActionResult> getChats(int userId, int toUserId, CancellationToken cancellationToken)
+        public async Task<IActionResult> getChats(int toUserId, CancellationToken cancellationToken)
         {
-            List<Chat> chats = await context.Chats.Where(p => p.UserId == userId && p.toUserId == toUserId
+            var email = User.FindFirstValue(ClaimTypes.Email);
+            Log.Information("Getting chats attempt from email : {@email}", email);
+            var user = (await userRepo.GetAll(x => x.Email == email)).First();
+            List<Chat> chats = await context.Chats.Where(p => p.UserId == user.Id && p.toUserId == toUserId
             || p.UserId == p.toUserId && p.toUserId == p.UserId).OrderBy(p => p.Date).ToListAsync(cancellationToken);
             return Ok(chats);
         }
 
-        //[HttpPost]
-        //public async Task<IActionResult> SendMessage([FromBody] MessageRequestDTO request, CancellationToken cancellationToken)
-        //{
-        //    Chat chat = new()
-        //    {
-        //        UserId = request.userId,
-        //        toUserId = request.toUserId,
-        //        Message = request.Message,
-        //        Date = DateTime.UtcNow
-        //    };
-        //    await context.AddAsync(chat, cancellationToken);
-        //    await context.SaveChangesAsync(cancellationToken);
-        //    string connectionId = ChatHub.Users.First(p => p.Value == chat.toUserId).Key;
-
-        //    await hubContext.Clients.Client(connectionId).SendAsync("Messages", chat);
-
-        //    return Ok(chat);
-        //}
-
         [HttpPost]
         public async Task<IActionResult> SendMessage([FromBody] MessageRequestDTO request, CancellationToken cancellationToken)
         {
+            var email = User.FindFirstValue(ClaimTypes.Email);
+            Log.Information("Sending chat attempt from email : {@email}", email);
+            var user = (await userRepo.GetAll(x => x.Email == email)).First();
+
+            Employee receiverUser = await userRepo.FindByIdAsync(request.toUserId);
+            if(user.Role==UserRole.Employee && receiverUser.Role == UserRole.Employee)
+            {
+                return Forbid("Bir isci diger isciye mesaj gondere bilmez");
+            }
+
             Chat chat = new()
             {
-                UserId = request.userId,
+                UserId = user.Id,
                 toUserId = request.toUserId,
                 Message = request.Message,
                 Date = DateTime.UtcNow
@@ -55,7 +55,7 @@ namespace UnitedPayment.Controllerr
             await context.AddAsync(chat, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
 
-            var userConnection = ChatHub.Users.FirstOrDefault(p => p.Value == chat.toUserId);
+            var userConnection = ChatHub.Employees.FirstOrDefault(p => p.Value == chat.toUserId);
 
             if (!userConnection.Equals(default(KeyValuePair<string, string>)) && !string.IsNullOrEmpty(userConnection.Key))
             {
@@ -63,8 +63,6 @@ namespace UnitedPayment.Controllerr
             }
 
             return Ok(chat);
-
-
 
         }
 

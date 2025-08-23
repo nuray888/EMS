@@ -5,25 +5,25 @@ namespace UnitedPayment.Hubs
 {
     public class ChatHub(AppDbContext context) : Hub
     {
-        public static Dictionary<string, int> Users = new();
+        public static Dictionary<string, int> Employees= new();
         public async Task Connect(int userId)
         {
-            Users.Add(Context.ConnectionId, userId);
-            User? user = await context.Users.FindAsync(userId);
-            if (user is not null)
+            Employees.Add(Context.ConnectionId, userId);
+            Employee? employee = await context.Employees.FindAsync(userId);
+            if (employee is not null)
             {
                 await context.SaveChangesAsync();
 
-                await Clients.All.SendAsync("Users", user);
+                await Clients.All.SendAsync("Users", employee);
             }
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             int userId;
-            Users.TryGetValue(Context.ConnectionId, out userId);
-            Users.Remove(Context.ConnectionId);
-            User? user = await context.Users.FindAsync(userId);
+            Employees.TryGetValue(Context.ConnectionId, out userId);
+            Employees.Remove(Context.ConnectionId);
+            Employee? user = await context.Employees.FindAsync(userId);
             if (user is not null)
             {
                 await context.SaveChangesAsync();

@@ -1,7 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using UnitedPayment.Model;
-using UnitedPayment.Model.DTOs;
-
+﻿using UnitedPayment.Model;
 namespace UnitedPayment.Repository
 {
 

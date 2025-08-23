@@ -1,9 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
-using UnitedPayment.Model;
-using UnitedPayment.Model.DTOs;
 using UnitedPayment.Model.DTOs.Requests;
 using UnitedPayment.Model.DTOs.Responses;
 using UnitedPayment.Services;
@@ -12,7 +9,6 @@ namespace UnitedPayment.Controllerr
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize(Roles = "Manager,Admin")]
     public class DepartmentController : ControllerBase
     {
         readonly IDepartmentService service;
@@ -20,8 +16,12 @@ namespace UnitedPayment.Controllerr
         {
             this.service = service;
         }
-
+        /// <summary>
+        /// Get all Departments
+        /// </summary>
+        /// <returns></returns>
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<List<DepartmentResponseDTO>>> GetAll()
         {
             var departments = await service.GetAllAsync();
@@ -34,8 +34,13 @@ namespace UnitedPayment.Controllerr
             return departments;
         }
 
-       
+        /// <summary>
+        /// Get department by id 
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<DepartmentResponseDTO>> GetById([FromRoute] int id)
         {
             var department = await service.FindByIdAsync(id);
@@ -49,16 +54,27 @@ namespace UnitedPayment.Controllerr
         }
 
 
-  
+        /// <summary>
+        /// Create new Department 
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<DepartmentResponseDTO>> Create([FromBody] DepartmentRequestDTO request)
         {
             var result = await service.CreateAsync(request);
 
             return Ok(result);
         }
-
+        /// <summary>
+        /// Update department
+        /// </summary>
+        /// <param name="request"></param>
+        /// <param name="id"></param>
+        /// <returns></returns>
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update([FromBody] DepartmentRequestDTO request, [FromRoute] int id)
         {
             var existingDepartment = await service.FindByIdAsync(id);
@@ -71,7 +87,13 @@ namespace UnitedPayment.Controllerr
             Log.Information("Department is updated with given id {@id} =>{@department}", id, department);
             return Ok();
         }
+        /// <summary>
+        /// Delete department
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         [HttpDelete("{id}")]
+        [Authorize(Roles ="Admin")]
         public async Task<IActionResult> Delete([FromRoute] int id)
         {
             var department = await service.FindByIdAsync(id);

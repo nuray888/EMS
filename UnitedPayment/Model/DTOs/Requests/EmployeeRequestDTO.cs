@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace UnitedPayment.Model.DTOs
+﻿namespace UnitedPayment.Model.DTOs
 {
     public class EmployeeRequestDTO
     {

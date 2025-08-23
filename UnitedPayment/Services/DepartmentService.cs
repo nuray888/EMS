@@ -1,11 +1,8 @@
 ﻿using AutoMapper;
-using Microsoft.AspNetCore.Http.HttpResults;
-using System.Collections.Immutable;
 using UnitedPayment.Model;
-using UnitedPayment.Model.DTOs;
 using UnitedPayment.Model.DTOs.Requests;
 using UnitedPayment.Model.DTOs.Responses;
-using UnitedPayment.Profiles;
+using UnitedPayment.Model.Enums;
 using UnitedPayment.Repository;
 
 namespace UnitedPayment.Services
@@ -24,19 +21,31 @@ namespace UnitedPayment.Services
     {
         private readonly IRepository<Department> repository;
         private readonly IMapper mapper;
-        public DepartmentService(IRepository<Department> repository, IMapper mapper)
+        private readonly IRepository<Employee> userRepo;
+        public DepartmentService(IRepository<Department> repository, IMapper mapper, IRepository<Employee> userRepo)
         {
             this.repository = repository;
             this.mapper = mapper;
+            this.userRepo = userRepo;
         }
         public async Task<DepartmentResponseDTO> CreateAsync(DepartmentRequestDTO request)
         {
             Department department = mapper.Map<Department>(request);
+            var managers = await userRepo
+                .GetAll(x => request.ManagerIds.Contains(x.Id) && x.Role == UserRole.Manager); 
+
+            if (!managers.Any())
+            {
+                throw new Exception("No managers found for the given IDs");
+            }
+            department.Employees = managers;
+
             await repository.AddAsync(department);
             await repository.SaveChangesAsync();
-            return mapper.Map<DepartmentResponseDTO>(department);
 
+            return mapper.Map<DepartmentResponseDTO>(department);
         }
+
 
         public async Task DeleteAsync(int id)
         {
