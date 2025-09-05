@@ -9,7 +9,6 @@ using System.Text;
 using System.Text.Json.Serialization;
 using UnitedPayment.Model;
 using UnitedPayment.Model.Enums;
-using UnitedPayment.Persistance.context;
 using UnitedPayment.Profiles;
 using UnitedPayment.Repository;
 using UnitedPayment.Services;
@@ -26,9 +25,6 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(sg =>
 {
-    //var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    //var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    //sg.IncludeXmlComments(xmlPath);
 
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
@@ -40,7 +36,7 @@ builder.Services.AddSwaggerGen(sg =>
     sg.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Type = SecuritySchemeType.Http,
+        Type = SecuritySchemeType.Http, 
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
@@ -64,12 +60,13 @@ builder.Services.AddSwaggerGen(sg =>
 });
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("ApiDatabase")));
-builder.Services.AddTransient<IEmployeeRepository, EmployeeRepository>();
-builder.Services.AddTransient<IRepository<Department>, Repository<Department>>();
-builder.Services.AddTransient<IRepository<Employee>, Repository<Employee>>();
-builder.Services.AddTransient<IDepartmentService, DepartmentService>();
-builder.Services.AddTransient<IEmployeeService, EmployeeService>();
-builder.Services.AddTransient<IAuthService, AuthService>();
+builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+builder.Services.AddScoped<IRepository<Department>, Repository<Department>>();
+builder.Services.AddScoped<IRepository<Employee>, Repository<Employee>>();
+builder.Services.AddScoped<IDepartmentService, DepartmentService>();
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IEmailService,EmailService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -99,16 +96,18 @@ Log.Logger = new LoggerConfiguration()
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // Enum-lar JSON-da string kimi getsin/g?lsin
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
+
+builder.Services.Configure<IdentityOptions>(
+    opts => opts.SignIn.RequireConfirmedEmail = true);
 
 var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     //dbContext.Database.EnsureDeleted(); // istəyirsənsə hər startda sil
-    dbContext.Database.Migrate(); // migration-ları tətbiq et
+    dbContext.Database.Migrate(); 
 }
 
 using (var scope = app.Services.CreateScope())
@@ -137,11 +136,6 @@ using (var scope = app.Services.CreateScope())
     }
 
 
-
-
-
-
-    // Configure the HTTP request pipeline.
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
